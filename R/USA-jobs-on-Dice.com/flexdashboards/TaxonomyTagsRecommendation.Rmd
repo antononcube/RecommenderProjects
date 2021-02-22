@@ -1,0 +1,230 @@
+---
+title: "Taxonomy tags recommendation"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(flexdashboard)
+library(DT)
+library(rmarkdown)
+library(stopwords)
+library(SnowballC)
+library(tidyverse)
+library(Matrix)
+
+library(SparseMatrixRecommender)
+library(SMRMon)
+library(LSAMon)
+```
+
+```{r get-data, include=FALSE}
+if( FALSE ) {
+  
+  savedObjectsDirName <- "../objects/"
+  modelID <- "lvUP-2021-02-22T13-55-07"
+  
+  load( file = file.path( savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsRecommenders.RData" ) ) )
+  load( file = file.path( savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSAObjects.RData" ) ) )
+  
+} else {
+  
+  load( file = "lsTaxonomyTagsRecommenders.RData" )
+  load( file = "lsTaxonomyTagsLSAObjects.RData" )
+  
+}
+```
+
+Parameters {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput( inputId = "taxonomyTagsRecommender", label = "Taxonomy tags recommender:", choices = names(lsTaxonomyTagsRecommenders), selected = "Title")
+
+sliderInput( inputId = "titleTagTypeWeight", label = "Title weight:", min = 0, max = 1, value = 1, step = 0.01 )
+
+sliderInput( inputId = "skillTagTypeWeight", label = "Skill weight:", min = 0, max = 1, value = 1, step = 0.01 )
+
+sliderInput( inputId = "companyTagTypeWeight", label = "Company weight:", min = 0, max = 1, value = 1, step = 0.01 )
+
+sliderInput( inputId = "wordTagTypeWeight", label = "Word weight:", min = 0, max = 1, value = 1, step = 0.01 )
+
+sliderInput( inputId = "topicTagTypeWeight", label = "Topic weight:", min = 0, max = 1, value = 1, step = 0.01 )
+```
+
+```{r}
+smrMeta <- 
+  reactive({
+    lsTaxonomyTagsRecommenders[[ input$taxonomyTagsRecommender ]]
+  })
+
+lsaObj <- 
+  reactive({
+    lsTaxonomyTagsLSAObjects[[ input$taxonomyTagsRecommender ]]
+  })
+
+```
+
+Row {data-height=800}
+-----------------------------------------------------------------------
+
+### Tags
+
+```{r}
+textAreaInput( inputId = "tagsText", label = "Tag text (metadata)", placeholder = "Skill:clojure, Title:quant", width = "600px", cols = 300, rows = 8 )
+
+lsTagsProf <- 
+  reactive({
+    
+    if( nchar(input$tagsText) == 0) { 
+      NULL 
+    } else {
+      res <- trimws( strsplit(input$tagsText, split = ",")[[1]] )
+      res <- res[ nchar(res) > 0 ]
+      res <- res[ res %in% colnames(smrMeta()$M) ] 
+    }
+  })
+
+renderText(paste(lsTagsProf(), collapse = ", "))
+```
+
+### Free text
+
+```{r}
+textAreaInput( inputId = "freeText", label = "Free text (description)", placeholder = "PhD in physics, statistics, mathematics, operations research, or similar.", width = "600px", cols = 300, rows = 8 )
+
+lsFreeWordsProf <- 
+  reactive({
+    
+    if( nchar(input$freeText) == 0) { 
+      NULL 
+    } else {
+      matRes <- 
+        lsaObj() %>% 
+        LSAMonRepresentByTerms( query = input$freeText ) %>% 
+        LSAMonTakeValue
+      
+      lsProf <- matRes[, colSums(matRes) > 0]
+      names(lsProf) <- paste0( "Word:", names(lsProf) )
+      lsProf <- lsProf[ names(lsProf) %in% colnames(smrMeta()$M) ]
+      rev(sort(lsProf))
+    }
+    
+  })
+
+lsFreeTopicsProf <- 
+  reactive({
+    
+    if( nchar(input$freeText) == 0) { 
+      NULL 
+    } else {
+      
+      matRes <- 
+        lsaObj() %>% 
+        LSAMonRepresentByTopics( query = input$freeText ) %>% 
+        LSAMonTakeValue
+      
+      matRes <- SMRApplyTermWeightFunctions( matRes, "None", "None", "Cosine" )
+      
+      lsProf <- matRes[, abs(colSums(matRes)) > 0]
+      names(lsProf) <- paste0( "Topic:", names(lsProf) )
+      lsProf <- lsProf[ names(lsProf) %in% colnames(smrMeta()$M) ]
+      rev(sort(lsProf))
+    }
+    
+  })
+
+lsFreeProf <- reactive({ c( lsFreeWordsProf(), lsFreeTopicsProf() ) })
+DT::renderDataTable(
+  expr = data.frame( Word = names(lsFreeProf()), Score =  lsFreeProf() ),
+  options = list(scrollX = "300px", scrollY = "300px", scroller = TRUE)
+)
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Recommendations with tags
+
+```{r}
+DT::renderDataTable(
+  if( is.null(lsTagsProf()) || length(lsTagsProf()) == 0 ) {
+    NULL
+  } else {
+    smrMeta() %>%     
+      SMRMonApplyTagTypeWeights( 
+        weights = 
+          c( 
+            Title = input$titleTagTypeWeight,
+            Skill = input$skillTagTypeWeight,
+            Company = input$companyTagTypeWeight
+          )[ smrMeta() %>% SMRMonTakeTagTypes ], 
+        default = 1 ) %>% 
+      SMRMonRecommendByProfile( profile = lsTagsProf(), nrecs = 10 ) %>% 
+      SMRMonTakeValue
+    },
+  options = list(scrollX = "300px", scrollY = "300px", scroller = TRUE)
+) 
+```
+
+
+### Recommendations with free text
+
+```{r}
+DT::renderDataTable(
+  if( is.null(lsFreeProf()) || length(lsFreeProf()) == 0 ) {
+    NULL
+  } else {
+    smrMeta() %>% 
+      SMRMonApplyTagTypeWeights( 
+        weights = 
+          c( 
+            Word = input$wordTagTypeWeight, 
+            Topic = input$topicTagTypeWeight
+          ), 
+        default = 1 ) %>% 
+      SMRMonRecommendByProfile( profile = lsFreeProf(), nrecs = 10 ) %>% 
+      SMRMonTakeValue
+    },
+  options = list(scrollX = "300px", scrollY = "300px", scroller = TRUE)
+) 
+```
+
+
+### Recommendations with both tags and free text
+
+```{r}
+lsProf <- 
+  reactive({ 
+    c( 
+      setNames( rep_len( x = 1, length.out = length(lsTagsProf())), lsTagsProf() ), 
+      lsFreeProf() 
+    ) 
+  })
+
+DT::renderDataTable(
+  if( is.null(lsProf()) || length(lsProf()) == 0 ) {
+    NULL
+  } else {
+    smrMeta() %>% 
+      SMRMonApplyTagTypeWeights( 
+        weights = 
+          c( 
+            Title = input$titleTagTypeWeight,
+            Skill = input$skillTagTypeWeight,
+            Company = input$companyTagTypeWeight,
+            Word = input$wordTagTypeWeight, 
+            Topic = input$topicTagTypeWeight
+          )[ smrMeta() %>% SMRMonTakeTagTypes ], 
+        default = 1 ) %>% 
+      SMRMonRecommendByProfile( profile = lsProf(), nrecs = 10 ) %>% 
+      SMRMonTakeValue
+    },
+  options = list(scrollX = "300px", scrollY = "300px", scroller = TRUE)
+) 
+```
