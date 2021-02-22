@@ -1,0 +1,71 @@
+#+TITLE: Work plan
+#+AUTHOR: Anton Antonov, Accendo Data LLC
+#+EMAIL: antononcube@posteo.net
+#+TODO: TODO ONGOING MAYBE | DONE CANCELED 
+#+OPTIONS: toc:1 num:0
+
+* Introduction
+- This org-mode file lists tasks for making a family of recommenders for jobs and job-related taxonomy tags and related dashboards.
+- The purpose of this project is demonstrate different recommender workflows over jobs data.
+- The jobs data is taken from :
+  - https://data.world/promptcloud/us-jobs-on-dice-com
+  - 22,000 jobs
+* Work plan [25%] [3/12]
+** TODO Make a dedicated GitHub repository
+** TODO Unit testing [0%] [0/2]
+- [ ] Come up with different unit tests
+- [ ] Make and run tag type guessing Top-K tests
+** DONE Ingest data [100%] [3/3]
+- [X] Download data
+- [X] Ingest data
+  - Suitable renaming of columns
+- [X] Do rudimentary data analysis
+** DONE Core recommender [%] [/]
+- Using matrices derived by cross-tabulation.
+** DONE Annex skills sub-matrix [100%] [3/3]
+- [X] Study extraction of skills from the free text column "Skills"
+- [X] Extract skils per job
+- [X] Annex skills sub-matrix
+** TODO Annex descriptions words and topics sub-matrices [80%] [4/5]
+- [X] Make document-term matrix
+- [X] Extract topics
+- [X] Verify that topics make sense
+- [X] Decide to use stemming or not
+  - Not using stemming
+- [ ] Statistical thesaurus
+** MAYBE Ingestion script
+** TODO Ingestion notebook [66%] [2/3]
+- [X] Parameterized ingestion
+- [X] Export of R objects
+- [ ] Export of recommender objects to CSV files
+** TODO Batch creation of taxonomy tags recommenders [50%] [2/4]
+- [X] Select tag types to make Taxonomy Tags Recommenders (TTRs) for
+  - First version:
+    : Title, Skill, Company
+  - Consider also using location / address
+- [X] Make core TTRs
+- [ ] Make LSA objects for each TTR tag type
+  - [ ] Document-term matrices
+  - [ ] Extract topics
+- [ ] Annex LSA word and topic matrices to the core TTRs
+** TODO Taxonomy Tags Recommenders dashboard
+- [ ] Ingest objects
+- [ ] Add relevant sliders
+- [ ] Experiment
+** TODO Overall dashboard [0%] [0/5]
+- [ ] Jobs search recommendation tab
+- [ ] Taxonomy tags recommendatations tab 
+- [ ] Extracted topics tab
+  - Selectable recommender
+- [ ] Data analysis tab [0%] [0/3]
+  - [ ] Selectable recommender
+    - Global or local?
+  - [ ] Dimensions per tag type
+  - [ ] Pareto principle adherence
+- [ ] Notes and references tab
+  - [ ] Packages
+  - [ ] Articles
+  - [ ] Data
+** TODO Proclaims [%] [/]
+- [ ] Publish dashboards at ~shinyapps.io~
+- [ ] Blog post

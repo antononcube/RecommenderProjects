@@ -1,0 +1,520 @@
+---
+title: "Ingest data"
+author: Anton Antonov
+date: 2021-02-22
+output: html_notebook
+params:
+  dataDirName: "~/Datasets/data.world/PromptCloud/"
+  dataFileNamePrefix: NULL
+  modelID: NULL
+  lsaNumberOfTopics: 100
+  lsaMethod: "SVD"
+  lsaMaxSteps: 120
+  lsaNormalizeLeftQ: FALSE
+  lsaStemWordsQ: FALSE
+  exportDirName: "../objects"
+  makeTrainingTTRsQ: FALSE
+  splitFraction: 0.8
+  exportJobsSMRQ: FALSE
+  exportJobsLSAObjectsQ: FALSE
+  exportTTRsQ: FALSE
+  exportTTRsLSAObjectsQ: FALSE
+  savedObjectsDirName: "../objects"
+  saveObjectsQ: TRUE
+  reingestQ: FALSE
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+```{r setup}
+library(Matrix)
+library(tidyverse)
+library(stopwords)
+library(SnowballC)
+library(stringi)
+
+library(ParetoPrincipleAdherence)
+library(OutlierIdentifiers)
+library(SparseMatrixRecommender)
+library(SMRMon)
+library(LSAMon)
+```
+
+
+# Parameters
+
+```{r modelID}
+modelID <- params$modelID
+if( is.null(modelID) ) {
+  modelID <- paste0( stringi::stri_rand_strings(1,4), "-", gsub( " ", "T", as.character(Sys.time()) ) )
+  modelID <- gsub(":", "-", modelID)
+}
+```
+
+
+```{r parameters, rows.print=20}
+dfParamsExport <- data.frame( Parameter = names(params), Value = as.character(params) )
+rownames(dfParamsExport) <- names(params)
+dfParamsExport["modelID", "Parameter"] <- "modelID"
+dfParamsExport["modelID", "Value"] <- modelID
+dfParamsExport
+```
+
+------
+
+# Read data 
+
+```{r}
+if( params$reingestQ || ! exists("dfDiceJobs") ) {
+  
+  cat("Reading raw data...\n")
+  
+  dfDiceJobs <- read.csv( file = file.path( params$dataDirName, "dice_com-job_us_sample.csv") )
+  
+  dfDiceJobs <-
+    setNames(
+      dfDiceJobs,
+      strsplit("AdvertiserUrl, Company, EmploymentType, Description, JobId, LocationAddress, Title, PostDate, Shift, SiteName, Skills, ID", ", ")[[1]]
+    )
+  
+  cat("...DONE")
+}
+```
+
+
+```{r, eval=FALSE}
+#set.seed(3332)
+#dfDiceJobs <- dfDiceJobs %>% dplyr::sample_n( min(nrow(dfDiceJobs), 2000) )
+```
+
+```{r, eval=FALSE}
+paste( colnames(dfDiceJobs), collapse = ", ")
+# [1] "advertiserurl, company, employmenttype_jobstatus, jobdescription, jobid, joblocation_address, jobtitle, postdate, shift, site_name, skills, uniq_id"
+```
+
+------
+
+# Make core recommender
+
+```{r}
+dfDiceJobs2 <-
+  dfDiceJobs %>%
+  dplyr::mutate( AdvertiserUrl = NULL, SiteName = NULL, Description = NULL, Skills = NULL,
+                 Shift = NULL)
+```
+
+Sparse matrices:
+
+```{r}
+lsFocusColumns <- setdiff( colnames(dfDiceJobs2), c( "ID", "AdvertiserUrl", "SiteName", "Description", "Skills", "Shift" ) )
+lsSMats <- 
+  purrr::map( lsFocusColumns, function(x) {
+    dfX <- dfDiceJobs2[,c("ID", x)]
+    dfX[[x]] <- trimws(tolower(dfX[[x]]))
+    m <- xtabs( as.formula( paste(" ~ ID + ", x ) ), dfX, sparse = TRUE)
+  })
+names(lsSMats) <- lsFocusColumns
+```
+
+
+```{r}
+smrDiceJobs <- 
+  SMRMonUnit() %>% 
+  SMRMonCreateFromMatrices( matrices = lsSMats, itemColumnName = "ID", addTagTypesToColumnNamesQ = TRUE )
+```
+
+------
+
+# Find skills per job
+
+## Study of individual skills
+
+```{r}
+print(system.time({
+  lsSkills <- as.character(unlist( purrr::map( dfDiceJobs$Skills, function(x) str_split(x, ",\\W*")[[1]]) ))
+  lsSkills <- lsSkills[ nchar(lsSkills) > 0 ]
+  lsSkills <- tolower(trimws(lsSkills))
+}))
+```
+
+Verify that found skills make sense:
+
+```{r, rows.print = 20}
+data.frame( Skill = lsSkills) %>% 
+  dplyr::filter( nchar(Skill) > 0 ) %>% 
+  dplyr::count( Skill, sort = T) %>% dplyr::slice(1:20)
+```
+
+## Find skills per job
+
+```{r}
+print(system.time(
+  lsaSkills <-
+    LSAMonUnit( setNames(dfDiceJobs$Skills, dfDiceJobs$ID) ) %>%
+    LSAMonMakeDocumentTermMatrix( splitPattern = ",\\W*" )
+))
+```
+
+```{r}
+ParetoPrincipleAdherence::ParetoPlot( data = colSums(lsaSkills %>% LSAMonTakeDocumentTermMatrix) )
+```
+
+## Annex skills sub-matrix
+
+```{r}
+smrDiceJobs <- 
+  smrDiceJobs %>% 
+  SMRAnnexSubMatrix( newSubMat = lsaSkills %>% LSAMonTakeDocumentTermMatrix, newTagType = "Skill", addTagTypesToColumnNamesQ = TRUE )
+```
+
+------
+
+# Normalization
+
+```{r}
+smrDiceJobs <- 
+  smrDiceJobs %>% 
+  SMRMonApplyTermWeightFunctions( "IDF", "None", "Cosine" )
+```
+
+# Verification 1
+
+```{r}
+smrDiceJobs %>% 
+  SMRMonRecommendByProfile( profile = c("Skill:java", "Skill:c++"), nrecs = 12 ) %>% 
+  SMRMonJoinAcross( data = dfDiceJobs2, by = "ID" ) %>% 
+  SMRMonTakeValue
+```
+
+------
+
+# Find words and topics
+
+## Descriptions sizes
+
+```{r}
+system.time(
+  dfQuery <- 
+    dfDiceJobs %>% 
+    dplyr::select( Title, Description ) %>% 
+    dplyr::mutate( NChar = nchar(Description) )
+)
+```
+
+
+```{r}
+ggplot( dfQuery %>% tidyr::pivot_longer( cols = tidyr::starts_with("N"), names_to = "Variable", values_to = "Value" ) ) +
+  geom_histogram( aes( x = Value), bins = 40 ) +
+  facet_wrap( ~Variable, scales = "free" )
+```
+
+
+## Find words and topics per job
+
+```{r}
+print(system.time(
+  lsaDescriptions <-
+    LSAMonUnit( setNames(dfDiceJobs$Description, dfDiceJobs$ID) ) %>%
+    LSAMonMakeDocumentTermMatrix( stemWordsQ = params$lsaStemWordsQ, stopWords = stopwords::stopwords() ) %>% 
+    LSAMonApplyTermWeightFunctions( "IDF", "None", "Cosine" )
+))
+```
+
+```{r}
+print(system.time(
+  lsaDescriptions <-
+    lsaDescriptions %>% 
+    LSAMonExtractTopics( numberOfTopics = params$lsaNumberOfTopics, 
+                         minNumberOfDocumentsPerTerm = min(200, round(0.1 * nrow(dfDiceJobs))), 
+                         method = params$lsaMethod, 
+                         maxSteps = params$lsaMaxSteps )
+))
+```
+
+## Verify that topics make sense
+
+```{r}
+lsaDescriptions <- 
+  lsaDescriptions %>% 
+  LSAMonEchoTopicsTable( numberOfTerms = 10, wideFormQ = TRUE )
+```
+
+
+## Verify that statistical thesaurus make sense
+
+```{r}
+lsaDescriptions <- 
+  lsaDescriptions %>% 
+  LSAMonEchoStatisticalThesaurus( words = c("agile", "eclipse", "java", "project", "python", "spring" ), numberOfNearestNeighbors = 10, wideFormQ = TRUE )
+```
+
+## Pareto principle adherence for words
+
+```{r}
+ParetoPrincipleAdherence::ParetoPlot( data = colSums(lsaDescriptions %>% LSAMonTakeDocumentTermMatrix) )
+```
+
+
+## Annex words and topics sub-matrices
+
+```{r}
+dim(lsaDescriptions %>% LSAMonTakeWeightedDocumentTermMatrix)
+```
+
+```{r}
+matWords <- lsaDescriptions %>% LSAMonTakeWeightedDocumentTermMatrix 
+matWords <- matWords[ , colSums(SMRUnitize(matWords)) >= 5 ]
+dim(matWords)
+```
+
+```{r}
+matTopics <- lsaDescriptions %>% LSAMonNormalizeMatrixProduct(normalizeLeft=FALSE) %>% LSAMonTakeW
+matTopics <- SMRApplyTermWeightFunctions( matTopics, "None", "None", "Cosine" )
+```
+
+```{r}
+smrDiceJobs <- 
+  smrDiceJobs %>% 
+  SMRAnnexSubMatrix( newSubMat = matWords,  newTagType = "Word",  addTagTypesToColumnNamesQ = TRUE ) %>% 
+  SMRAnnexSubMatrix( newSubMat = matTopics, newTagType = "Topic", addTagTypesToColumnNamesQ = TRUE )
+```
+
+------
+
+# Verification 2
+
+```{r}
+lsProf <- sample(grep("Word:", colnames(smrDiceJobs$M), value = T) ,2)
+lsProf
+```
+
+```{r}
+dfRecs <- 
+  smrDiceJobs %>% 
+  SMRMonRecommendByProfile( profile = lsProf, nrecs = 10 ) %>% 
+  SMRMonJoinAcross( data = dfDiceJobs2, by = "ID" ) %>% 
+  SMRMonTakeValue
+dfRecs
+```
+
+```{r}
+dfDiceJobs %>% 
+  dplyr::select( ID, Description ) %>% 
+  dplyr::filter( ID %in% dfRecs$ID ) 
+```
+
+------
+
+# Tag types statistics
+
+```{r}
+purrr::map_df( smrDiceJobs %>% SMRMonTakeTagTypes, function(tagType) {
+  m <- SMRSubMatrix( smr = smrDiceJobs, tagType = tagType )
+  data.frame( TagType = tagType, NRow = nrow(m), NCol = ncol(m) )
+})
+```
+
+------
+
+# Make taxonomy tags recommenders
+
+```{r}
+lsFocusTagTypes <- c( "Skill", "Title", "Company" )
+```
+
+## Core recommenders
+
+```{r}
+print(system.time({
+  
+  lsCoreTaxonomyTagsRecommenders <- 
+    purrr::map(lsFocusTagTypes, function(tagType) {
+      
+      smrObj <- 
+        SMRToMetadataRecommender( 
+          smr = smrDiceJobs, 
+          tagTypeTo = tagType, 
+          nTopTags = 1, 
+          tagTypes = setdiff( smrDiceJobs %>% SMRMonTakeTagTypes, c(tagType, "Word", "Topic") ),
+          tagSelectionCriteria = 150 ) %>% 
+        SMRMonApplyTermWeightFunctions( "None", "None", "Cosine" )
+      
+      rownames(smrObj$M) <- gsub( paste0("^", tagType, ":"), "", rownames(smrObj$M) )
+      rownames(smrObj$M01) <- gsub( paste0("^", tagType, ":"), "", rownames(smrObj$M01) )
+      
+      smrObj
+    })
+  
+  names(lsCoreTaxonomyTagsRecommenders) <- lsFocusTagTypes
+  
+}))
+```
+
+## LSA objects
+
+```{r}
+print(system.time({
+  
+  lsTaxonomyTagsLSAObjects <- 
+    purrr::map(lsFocusTagTypes, function(tagType) {
+      
+      print(tagType)
+      
+      smat <- SMRUnitize( SMRSubMatrix( smr = smrDiceJobs, tagType = tagType ) )
+      
+      lsFocusTags <- colnames(smat)[ colSums(smat) >= 5 ]
+      
+      dfTextsSample <- setNames( SMRSparseMatrixToTriplets( smat = smat[ , lsFocusTags ] ), c( "ID", "Tag", "Weight") )
+      
+      dfTextsSample$Tag <- gsub( paste0("^", tagType, ":"), "", dfTextsSample$Tag )
+
+      dfTextsSample <- 
+        dfTextsSample %>% 
+        dplyr::group_by( Tag ) %>% 
+        dplyr::sample_n( size = min( n(), 400 ) ) %>% 
+        dplyr::inner_join( dfDiceJobs %>% dplyr::select( ID, Description), by = "ID" ) %>% 
+        dplyr::filter( 100 <= nchar(Description) && nchar(Description) <= 4000 ) %>% 
+        dplyr::summarise( TotalText = paste(Description, collapse = " "), .groups = "drop_last" ) %>% 
+        dplyr::ungroup()
+      
+      LSAMonUnit( setNames(dfTextsSample$TotalText, dfTextsSample$Tag) ) %>% 
+        LSAMonMakeDocumentTermMatrix( stemWordsQ = params$lsaStemWordsQ, stopWords = stopwords::stopwords() ) %>%
+        LSAMonApplyTermWeightFunctions( "IDF", "None", "Cosine" ) %>% 
+        LSAMonExtractTopics( 
+          numberOfTopics = 10, #params$lsaNumberOfTopics, 
+          minNumberOfDocumentsPerTerm = 5,
+          method = params$lsaMethod,
+          maxSteps = params$lsaMaxSteps
+        )
+      
+    })
+  
+  names(lsTaxonomyTagsLSAObjects) <- lsFocusTagTypes
+  
+}))
+```
+
+
+## Annex LSA matrices to core recommenders
+
+```{r}
+lsTaxonomyTagsRecommenders <- 
+  purrr::map( lsFocusTagTypes, function( tagType ) {
+    
+    smrObj <- lsCoreTaxonomyTagsRecommenders[[tagType]]
+    lsaObj <- lsTaxonomyTagsLSAObjects[[tagType]]
+  
+    matWords <- lsaObj %>% LSAMonTakeWeightedDocumentTermMatrix
+    matWords <- matWords[ , colnames(matWords)[ colSums(SMRUnitize(matWords)) >= 5 ] ]
+    
+    matTopics <- lsaObj %>% LSAMonNormalizeMatrixProduct(normalizeLeft=FALSE) %>% LSAMonTakeW
+    matTopics <- SMRApplyTermWeightFunctions( matTopics, "None", "None", "Cosine" )
+
+    assertthat::assert_that( mean( rownames(matWords) %in% rownames(smrObj$M) ) > 0.5 )
+    assertthat::assert_that( mean( rownames(matTopics) %in% rownames(smrObj$M) ) > 0.5 )
+    
+    smrObj <- 
+      smrObj %>% 
+      SMRAnnexSubMatrix( newSubMat = matWords,  newTagType = "Word",  addTagTypesToColumnNamesQ = TRUE ) %>% 
+      SMRAnnexSubMatrix( newSubMat = matTopics, newTagType = "Topic", addTagTypesToColumnNamesQ = TRUE ) %>% 
+      SMRMonApplyTermWeightFunctions( "None", "None", "Cosine" )
+    
+  })
+
+names(lsTaxonomyTagsRecommenders) <- names(lsCoreTaxonomyTagsRecommenders)
+```
+
+
+------
+
+# Verification 3
+
+```{r}
+lsProf <- sample(grep("Word|Skill", colnames(smrDiceJobs$M), value = T), 4)
+lsProf
+```
+
+```{r}
+with( 
+  data = {smr <- lsTaxonomyTagsRecommenders$Title },
+  expr = {
+    smr %>% 
+      SMRMonRecommendByProfile( profile = intersect(lsProf, colnames(smr$M) ), nrecs = 10 ) %>% 
+      SMRMonTakeValue 
+  })
+```
+
+```{r}
+with( 
+  data = {smr <- lsTaxonomyTagsRecommenders$Company },
+  expr = {
+    smr %>% 
+      SMRMonRecommendByProfile( profile = intersect(lsProf, colnames(smr$M) ), nrecs = 10 ) %>% 
+      SMRMonTakeValue 
+  })
+```
+
+
+```{r}
+lsProf <- sample(grep("Word|Title", colnames(smrDiceJobs$M), value = T), 4)
+lsProf
+```
+
+```{r}
+with( 
+  data = {smr <- lsTaxonomyTagsRecommenders$Skill },
+  expr = {
+    smr %>% 
+      SMRMonRecommendByProfile( profile = intersect(lsProf, colnames(smr$M) ), nrecs = 10 ) %>% 
+      SMRMonTakeValue 
+  })
+```
+
+------
+
+# Save R objects
+
+```{r}
+if( params$saveObjectsQ ) {
+  
+  write.csv( x = dfParamsExport, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "Parameters.csv" ) ), row.names = FALSE )
+  save( smrDiceJobs, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "smrDiceJobs.RData") ) ) 
+  save( lsaSkills, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsaSkills.RData") ) ) 
+  save( lsaDescriptions, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsaDescriptions.RData") ) ) 
+  save( lsTaxonomyTagsRecommenders, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsRecommenders.RData") ) ) 
+  save( lsTaxonomyTagsLSAObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSAObjects.RData") ) ) 
+  
+}
+```
+
+------
+
+# Export
+
+```{r, eval=FALSE}
+## EXPORT not saving of objects.
+if( params$exportJobsSMRQ ) { 
+  save( smrDiceJobs, file = file.path( params$exportDirName, paste0( modelID, "-", "smrDiceJobs.RData") ) ) 
+}
+
+if( params$exportJobsLSAObjectsQ ) { 
+  save( lsaSkills, file = file.path( params$exportDirName, paste0( modelID, "-", "lsaSkills.RData") ) )
+  save( lsaDescriptions, file = file.path( params$exportDirName, paste0( modelID, "-", "lsaDescriptions.RData") ) ) 
+}
+
+if( params$exportTTRsQ ) { 
+  save( lsTaxonomyTagsRecommenders, file = file.path( params$exportDirName, paste0( modelID, "-", "lsTaxonomyTagsRecommenders.RData") ) ) 
+}
+
+if( params$exportTTRsLSAObjectsQ ) { 
+  save( lsTaxonomyTagsRecommenders, file = file.path( params$exportDirName, paste0( modelID, "-", "lsTaxonomyTagsLSAObjects.RData") ) ) 
+}
+```
+
+
