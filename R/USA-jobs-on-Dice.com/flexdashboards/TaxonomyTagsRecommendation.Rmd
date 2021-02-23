@@ -29,7 +29,7 @@ library(LSAMon)
 if( FALSE ) {
   
   savedObjectsDirName <- "../objects/"
-  modelID <- "lvUP-2021-02-22T13-55-07"
+  modelID <- "B0KR-2021-02-23T12-33-57"
   
   load( file = file.path( savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsRecommenders.RData" ) ) )
   load( file = file.path( savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSANoTextObjects.RData" ) ) )
