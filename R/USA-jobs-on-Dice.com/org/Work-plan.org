@@ -10,11 +10,8 @@
 - The jobs data is taken from :
   - https://data.world/promptcloud/us-jobs-on-dice-com
   - 22,000 jobs
-* Work plan [25%] [3/12]
-** TODO Make a dedicated GitHub repository
-** TODO Unit testing [0%] [0/2]
-- [ ] Come up with different unit tests
-- [ ] Make and run tag type guessing Top-K tests
+* Work plan [69%] [9/13]
+** DONE Make a dedicated GitHub repository
 ** DONE Ingest data [100%] [3/3]
 - [X] Download data
 - [X] Ingest data
@@ -26,32 +23,37 @@
 - [X] Study extraction of skills from the free text column "Skills"
 - [X] Extract skils per job
 - [X] Annex skills sub-matrix
-** TODO Annex descriptions words and topics sub-matrices [80%] [4/5]
+** DONE Annex descriptions words and topics sub-matrices [100%] [5/5]
 - [X] Make document-term matrix
 - [X] Extract topics
 - [X] Verify that topics make sense
 - [X] Decide to use stemming or not
   - Not using stemming
-- [ ] Statistical thesaurus
-** MAYBE Ingestion script
+- [X] Statistical thesaurus
+** CANCELED Ingestion script
 ** TODO Ingestion notebook [66%] [2/3]
 - [X] Parameterized ingestion
-- [X] Export of R objects
+- [X] Save of R objects
 - [ ] Export of recommender objects to CSV files
-** TODO Batch creation of taxonomy tags recommenders [50%] [2/4]
+** DONE Batch creation of taxonomy tags recommenders [100%] [4/4]
 - [X] Select tag types to make Taxonomy Tags Recommenders (TTRs) for
   - First version:
     : Title, Skill, Company
   - Consider also using location / address
 - [X] Make core TTRs
-- [ ] Make LSA objects for each TTR tag type
-  - [ ] Document-term matrices
-  - [ ] Extract topics
-- [ ] Annex LSA word and topic matrices to the core TTRs
-** TODO Taxonomy Tags Recommenders dashboard
-- [ ] Ingest objects
-- [ ] Add relevant sliders
-- [ ] Experiment
+- [X] Make LSA objects for each TTR tag type
+  - [X] Document-term matrices
+  - [X] Extract topics
+- [X] Annex LSA word and topic matrices to the core TTRs
+** DONE Taxonomy Tags Recommenders dashboard [100%] [4/4]
+- [X] Ingest objects
+- [X] Add relevant sliders
+  - [X] Selectable recommender
+  - [X] Filter tag types based on selected recommender
+- [X] Experiment
+- [X] Two-panel design
+  - [X] Main panel
+  - [X] References panel
 ** TODO Overall dashboard [0%] [0/5]
 - [ ] Jobs search recommendation tab
 - [ ] Taxonomy tags recommendatations tab 
@@ -66,6 +68,13 @@
   - [ ] Packages
   - [ ] Articles
   - [ ] Data
-** TODO Proclaims [%] [/]
-- [ ] Publish dashboards at ~shinyapps.io~
+** DONE Web API demo [100%] [2/2]
+- Using the R-package ~plumber~.
+- [X] Re-use PRSMon-R files
+- [X] Experiment
+** TODO Unit testing [0%] [0/2]
+- [ ] Come up with different unit tests
+- [ ] Make and run tag type guessing Top-K tests
+** TODO Proclaims [50%] [1/2]
+- [X] Publish dashboards at ~shinyapps.io~
 - [ ] Blog post
