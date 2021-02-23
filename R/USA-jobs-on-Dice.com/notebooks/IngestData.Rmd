@@ -21,6 +21,7 @@ params:
   exportTTRsLSAObjectsQ: FALSE
   savedObjectsDirName: "../objects"
   saveObjectsQ: TRUE
+  saveProcessedDataQ: TRUE
   reingestQ: FALSE
 ---
 
@@ -103,19 +104,18 @@ paste( colnames(dfDiceJobs), collapse = ", ")
 # Make core recommender
 
 ```{r}
-dfDiceJobs2 <-
+dfDiceJobsProcessed <-
   dfDiceJobs %>%
-  dplyr::mutate( AdvertiserUrl = NULL, SiteName = NULL, Description = NULL, Skills = NULL,
-                 Shift = NULL)
+  dplyr::mutate( AdvertiserUrl = NULL, SiteName = NULL, Description = NULL, Skills = NULL, Shift = NULL)
 ```
 
 Sparse matrices:
 
 ```{r}
-lsFocusColumns <- setdiff( colnames(dfDiceJobs2), c( "ID", "AdvertiserUrl", "SiteName", "Description", "Skills", "Shift" ) )
+lsFocusColumns <- setdiff( colnames(dfDiceJobsProcessed), c( "ID", "AdvertiserUrl", "SiteName", "Description", "Skills", "Shift" ) )
 lsSMats <- 
   purrr::map( lsFocusColumns, function(x) {
-    dfX <- dfDiceJobs2[,c("ID", x)]
+    dfX <- dfDiceJobsProcessed[,c("ID", x)]
     dfX[[x]] <- trimws(tolower(dfX[[x]]))
     m <- xtabs( as.formula( paste(" ~ ID + ", x ) ), dfX, sparse = TRUE)
   })
@@ -188,7 +188,7 @@ smrDiceJobs <-
 ```{r}
 smrDiceJobs %>% 
   SMRMonRecommendByProfile( profile = c("Skill:java", "Skill:c++"), nrecs = 12 ) %>% 
-  SMRMonJoinAcross( data = dfDiceJobs2, by = "ID" ) %>% 
+  SMRMonJoinAcross( data = dfDiceJobsProcessed, by = "ID" ) %>% 
   SMRMonTakeValue
 ```
 
@@ -298,7 +298,7 @@ lsProf
 dfRecs <- 
   smrDiceJobs %>% 
   SMRMonRecommendByProfile( profile = lsProf, nrecs = 10 ) %>% 
-  SMRMonJoinAcross( data = dfDiceJobs2, by = "ID" ) %>% 
+  SMRMonJoinAcross( data = dfDiceJobsProcessed, by = "ID" ) %>% 
   SMRMonTakeValue
 dfRecs
 ```
@@ -498,6 +498,13 @@ if( params$saveObjectsQ ) {
   save( lsTaxonomyTagsLSAObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSAObjects.RData") ) ) 
   save( lsTaxonomyTagsLSANoTextObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSANoTextObjects.RData") ) ) 
 
+}
+```
+
+```{r}
+if( params$saveProcessedDataQ ) {
+  
+  save( lsTaxonomyTagsLSANoTextObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "dfDiceJobsProcessed.RData") ) ) 
 }
 ```
 
