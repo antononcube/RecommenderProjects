@@ -483,13 +483,21 @@ with(
 ```{r}
 if( params$saveObjectsQ ) {
   
+  ## In order to use less memory at shinyapps.io
+  lsTaxonomyTagsLSANoTextObjects <- 
+    purrr::map( lsTaxonomyTagsLSAObjects, function(x) {
+      x[["Documents"]] <- NULL
+      x
+    })
+  
   write.csv( x = dfParamsExport, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "Parameters.csv" ) ), row.names = FALSE )
   save( smrDiceJobs, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "smrDiceJobs.RData") ) ) 
   save( lsaSkills, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsaSkills.RData") ) ) 
   save( lsaDescriptions, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsaDescriptions.RData") ) ) 
   save( lsTaxonomyTagsRecommenders, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsRecommenders.RData") ) ) 
   save( lsTaxonomyTagsLSAObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSAObjects.RData") ) ) 
-  
+  save( lsTaxonomyTagsLSANoTextObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "lsTaxonomyTagsLSANoTextObjects.RData") ) ) 
+
 }
 ```
 
