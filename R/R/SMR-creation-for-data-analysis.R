@@ -3,7 +3,7 @@
 ##
 ## BSD 3-Clause License
 ##
-## Copyright (c) 2019, Anton Antonov
+## Copyright (c) 2022, Anton Antonov
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
