@@ -18,8 +18,8 @@ doc <- "Usage: Launch-TSSE-interface [-f FOLDER] [-s SMRNAME] [-i INTERVALSIZE] 
 -f --folder FOLDER              Directory (folder) with models [default: NULL].
 -s --smrname SMRNAME            SMR object filename [default: NULL].
 -i --intervalsize INTERVALSIZE  Interval size in days [default: 14].
--t --tagtype TAGTYPE            Tag type to make time series withp [default: NULL]
--d --datetagtype TAGTYPE        Tag type to make time series withp [default: 'creation_date']
+-t --tagtype TAGTYPE            Tag type to make time series with [default: NULL]
+-d --datetagtype TAGTYPE        Tag type to make time series with [default: 'creation_date']
 -0 --downvalue DOWNVALUE        Down value for search vectors [default: 1]
 -1 --upvalue DOWNVALUE          Up value for search vectors [default: 2]
 -e --error                      Throw error and halt instead of a warning [default: FALSE]
