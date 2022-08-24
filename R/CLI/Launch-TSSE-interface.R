@@ -29,8 +29,6 @@ doc <- "Usage: Launch-TSSE-interface [-f FOLDER] [-s SMRNAME] [-i INTERVALSIZE] 
 ## docopt parsing
 opt <- docopt(doc)
 
-print(opt)
-
 if (opt$folder == "NA" ||
   opt$folder == "NULL" ||
   is.null(opt$folder)) {
@@ -84,6 +82,10 @@ if (is.na(opt$up_value) ||
 
 if (opt$error) {
 
+}
+
+if(opt$verbose) {
+  print(opt)
 }
 
 params <- list(folder = opt$folder,
@@ -182,14 +184,14 @@ smrTSLocal <- SMRCreateFromMatrices(matrices = c(tsDotMat),
 
 
 if (params$verbose) {
-  cat("\nCreated time series search SMR\n")
+  cat("\nCreated time series dot-search SMR\n")
 }
 
 ## -----------------------------------------------------------------------------
 tssmrLocal <- TSCorrSMRCreate(timeSeriesMatrix = tsMat, smr = smrTSLocal, smrNRecs = 200)
 
 if (params$verbose) {
-  cat("\nCreated time series SMR\n")
+  cat("\nCreated time series main (correlation) SMR\n")
 }
 
 
