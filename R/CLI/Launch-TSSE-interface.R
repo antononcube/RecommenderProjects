@@ -13,22 +13,23 @@
 suppressMessages(library(docopt))       # we need docopt (>= 0.3) as on CRAN
 
 ## configuration for docopt
-doc <- "Usage: Launch-TSSE-interface [-f FOLDER] [-s SMRNAME] [-i INTERVALSIZE] [-t TAGTYPE] [-d DATETAGTYPE] [-0 1] [-1 2] [--error] [-h]
+doc <- "Usage: Launch-TSSE-interface [-f FOLDER] [-s SMRNAME] [-i INTERVALSIZE] [-t TAGTYPE] [-d DATETAGTYPE] [-0 1] [-1 2] [--error] [-v] [-h]
 
--f --folder FOLDER              Directory (folder) with models [default: NULL].
--s --smrname SMRNAME            SMR object filename [default: NULL].
--i --intervalsize INTERVALSIZE  Interval size in days [default: 14].
--t --tagtype TAGTYPE            Tag type to make time series with [default: NULL]
--d --datetagtype TAGTYPE        Tag type to make time series with [default: creation_datez]
--0 --downvalue DOWNVALUE        Down value for search vectors [default: 1]
--1 --upvalue DOWNVALUE          Up value for search vectors [default: 2]
--e --error                      Throw error and halt instead of a warning [default: FALSE]
--h --help                       Show this help text"
+-f --folder FOLDER               Directory (folder) with models [default: NULL].
+-s --smr SMRNAME                 SMR object filename [default: NULL].
+-i --interval-size INTERVALSIZE  Interval size in days [default: 14].
+-t --tag-type TAGTYPE            Tag type to make time series with [default: NULL]
+-d --date-tag-type TAGTYPE       Tag type to make time series with [default: creation_datez]
+-0 --down-value DOWNVALUE        Down value for search vectors [default: 1]
+-1 --up-value DOWNVALUE          Up value for search vectors [default: 2]
+-v --verbose                     Show exectution steps log [default: FALSE]
+-e --error                       Throw error and halt instead of a warning [default: FALSE]
+-h --help                        Show this help text"
 
 ## docopt parsing
 opt <- docopt(doc)
 
-#print(opt)
+print(opt)
 
 if (opt$folder == "NA" ||
   opt$folder == "NULL" ||
@@ -36,49 +37,49 @@ if (opt$folder == "NA" ||
   opt$folder <- "../SMR-objects"
 }
 
-if (opt$smrname == "NA" ||
-  opt$smrname == "NULL" ||
-  is.null(opt$smrname)) {
-  opt$smrname <- "smrForDataAnalysis"
+if (opt$smr == "NA" ||
+  opt$smr == "NULL" ||
+  is.null(opt$smr)) {
+  opt$smr <- "smrForDataAnalysis"
 }
 
-opt$intervalsize <- as.numeric(opt$intervalsize)
-if (is.na(opt$intervalsize) ||
-  opt$intervalsize == "NA" ||
-  opt$intervalsize == "NULL" ||
-  is.null(opt$intervalsize)) {
-  opt$intervalsize <- 14L
+opt$interval_size <- as.numeric(opt$interval_size)
+if (is.na(opt$interval_size) ||
+  opt$interval_size == "NA" ||
+  opt$interval_size == "NULL" ||
+  is.null(opt$interval_size)) {
+  opt$interval_size <- 14L
 }
 
-if (is.na(opt$tagtype) ||
-  opt$tagtype == "NA" ||
-  opt$tagtype == "NULL" ||
-  is.null(opt$tagtype)) {
+if (is.na(opt$tag_type) ||
+  opt$tag_type == "NA" ||
+  opt$tag_type == "NULL" ||
+  is.null(opt$tag_type)) {
   warning("No tag type was provided (the option --tagtype), making time series over recommender's items.")
-  opt$tagtype <- NA
+  opt$tag_type <- NA
 }
 
-if (is.na(opt$datetagtype) ||
-  opt$datetagtype == "NA" ||
-  opt$datetagtype == "NULL" ||
-  is.null(opt$datetagtype)) {
-  opt$datetagtype <- "creation_date"
+if (is.na(opt$date_tag_type) ||
+  opt$date_tag_type == "NA" ||
+  opt$date_tag_type == "NULL" ||
+  is.null(opt$date_tag_type)) {
+  opt$date_tag_type <- "creation_date"
 }
 
-opt$downvalue <- as.numeric(opt$downvalue)
-if (is.na(opt$downvalue) ||
-  opt$downvalue == "NA" ||
-  opt$downvalue == "NULL" ||
-  is.null(opt$downvalue)) {
-  opt$downvalue <- 1
+opt$down_value <- as.numeric(opt$down_value)
+if (is.na(opt$down_value) ||
+  opt$down_value == "NA" ||
+  opt$down_value == "NULL" ||
+  is.null(opt$down_value)) {
+  opt$down_value <- 1
 }
 
-opt$upvalue <- as.numeric(opt$upvalue)
-if (is.na(opt$upvalue) ||
-  opt$upvalue == "NA" ||
-  opt$upvalue == "NULL" ||
-  is.null(opt$upvalue)) {
-  opt$upvalue <- 1
+opt$up_value <- as.numeric(opt$up_value)
+if (is.na(opt$up_value) ||
+  opt$up_value == "NA" ||
+  opt$up_value == "NULL" ||
+  is.null(opt$up_value)) {
+  opt$up_value <- 1
 }
 
 if (opt$error) {
@@ -86,14 +87,15 @@ if (opt$error) {
 }
 
 params <- list(folder = opt$folder,
-               recommender = opt$smrname,
-               intervalSize = opt$intervalsize,
-               tagType = opt$tagtype,
-               dateTagType = opt$datetagtype,
-               downIntervalSize = opt$intervalsize,
-               initOffset = opt$intervalsize,
-               downvalue = opt$downvalue,
-               upvalue = opt$upvalue,
+               recommender = opt$smr,
+               intervalSize = opt$interval_size,
+               tagType = opt$tag_type,
+               dateTagType = opt$date_tag_type,
+               downIntervalSize = opt$interval_size,
+               initOffset = opt$interval_size,
+               downvalue = opt$down_value,
+               upvalue = opt$up_value,
+               verbose = opt$verbose,
                k = 10)
 
 ## ----setup--------------------------------------------------------------------
@@ -106,6 +108,10 @@ require(SparseMatrixRecommenderInterfacesNoDT)
 
 fileName <- file.path(params$folder, paste0(params$recommender, ".RData"))
 
+if (params$verbose) {
+  cat("\nSMR file name:", fileName, "\n")
+}
+
 if (!file.exists(fileName)) {
   stop(paste("The file name:", fileName), ", does not exist.", call. = TRUE)
 }
@@ -113,6 +119,9 @@ if (!file.exists(fileName)) {
 load(file = fileName)
 smrForDataAnalysis <- get(params$recommender)
 
+if (params$verbose) {
+  cat("\nLoaded SMR object.\n")
+}
 
 ## -----------------------------------------------------------------------------
 
@@ -140,9 +149,17 @@ if (is.character(params$tagType)) {
 
   tsMat <- SMRCrossTabulateTagTypes(smr = smrForDataAnalysis, tagType1 = params$tagType, tagType2 = params$dateTagType)
 
+  if (params$verbose) {
+    cat("\nCross tabulated ", params$tagType, " and ", params$dateTagType, "\n")
+  }
+
 } else {
 
   tsMat <- SMRSubMatrix(smr = smrForDataAnalysis, tagType = opt$dateTagType)
+
+  if (params$verbose) {
+    cat("\nTook sub-matrix of ", params$dateTagType, "\n")
+  }
 
 }
 
@@ -152,22 +169,37 @@ colnames(tsMat) <- stringr::str_split_fixed(colnames(tsMat), ":", n = 2)[, 2]
 
 tsDotMat <- SMRApplyTermWeightFunctions(docTermMat = tsMat, globalWeightFunction = "None", localWeightFunction = "None", normalizerFunction = "Cosine")
 
+if (params$verbose) {
+  cat("\nCosine normalized\n")
+}
 
 ## -----------------------------------------------------------------------------
-smrTSSeller <- SMRCreateFromMatrices(matrices = c(tsDotMat),
-                                     tagTypes = c("NormalizedTimeSeries"),
-                                     itemColumnName = "ID",
-                                     imposeSameRowNamesQ = TRUE,
-                                     addTagTypesToColumnNamesQ = FALSE)
+smrTSLocal <- SMRCreateFromMatrices(matrices = c(tsDotMat),
+                                    tagTypes = c("NormalizedTimeSeries"),
+                                    itemColumnName = "ID",
+                                    imposeSameRowNamesQ = TRUE,
+                                    addTagTypesToColumnNamesQ = FALSE)
 
+
+if (params$verbose) {
+  cat("\nCreated time series search SMR\n")
+}
 
 ## -----------------------------------------------------------------------------
-tssmrSeller <- TSCorrSMRCreate(timeSeriesMatrix = tsMat, smr = smrTSSeller, smrNRecs = 200)
+tssmrLocal <- TSCorrSMRCreate(timeSeriesMatrix = tsMat, smr = smrTSLocal, smrNRecs = 200)
+
+if (params$verbose) {
+  cat("\nCreated time series SMR\n")
+}
 
 
 ## -----------------------------------------------------------------------------
 tsSearchVectors <- MakeTimeSeriesSearchVectors(tsMat = tsMat)
 length(tsSearchVectors)
+
+if (params$verbose) {
+  cat("\nMade \"standard\" search vectors\n")
+}
 
 
 ## -----------------------------------------------------------------------------
@@ -183,6 +215,9 @@ names(tsSearchVectors3) <- purrr::map(lsPInds, function(x) { paste0("S:", colnam
 tsSearchVectors4 <- purrr::map(lsPInds, function(x) { res <- rep_len(x = params$downvalue, length.out = ncol(tsMat)); res[1:x[[1]]] <- params$upvalue; res })
 names(tsSearchVectors4) <- purrr::map(lsPInds, function(x) { paste0("Z:", colnames(tsMat)[[x[[1]]]]) })
 
+if (params$verbose) {
+  cat("\nMade additional search vectors\n")
+}
 
 ## -----------------------------------------------------------------------------
 intervalSize <- 2 * intervalSize
@@ -222,7 +257,11 @@ tsSearchVectorsAll <- c(tsSearchVectors, tsSearchVectors2, tsSearchVectors3, tsS
 
 
 ## -----------------------------------------------------------------------------
-shiny::runApp(TSCorrSMRCreateSearchInterface(tsSMR = tssmrSeller, tsSearchVectors = tsSearchVectorsAll, theme = "superhero"))
+if (params$verbose) {
+  cat("\nReady to launch Shiny-app...\n")
+}
+
+shiny::runApp(TSCorrSMRCreateSearchInterface(tsSMR = tssmrLocal, tsSearchVectors = tsSearchVectorsAll, theme = "superhero"))
 
 ##===========================================================
 ## Launching of Time Series Search Engine (TSSE) R script
