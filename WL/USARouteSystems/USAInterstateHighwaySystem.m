@@ -81,7 +81,7 @@ MakeRouteDataObjects[fileURL_String : fileURL] :=
     Block[{kmlObj,
       lsGeoLines, lsGeoLines2, lsGeoPointAssociations, lsGeoPointAssociations2, lsUniqueGeoLineIDs,
       aGeoLines, aGeoPoints, aSimilar, aGeoLines2, aGeoPoints2, aHWPoints2,
-      gnnObj2, gnnAllObj2},
+      gnnHWObj2, gnnAllObj2},
 
       (*-----------------------------------------------------*)
       (* Import data                                         *)
@@ -174,7 +174,7 @@ MakeRouteDataObjects[fileURL_String : fileURL] :=
       Print["Length[aHWPoints2] : ", Length[aHWPoints2]];
 
       Print[AbsoluteTiming[
-        gnnObj2 =
+        gnnHWObj2 =
             GNNMonUnit[aHWPoints2]\[DoubleLongRightArrow]
                 GNNMonMakeNearestFunction[DistanceFunction -> EuclideanDistance]\[DoubleLongRightArrow]
                 GNNMonComputeThresholds[10, "AggregationFunction" -> Mean, "OutlierIdentifier" -> QuartileIdentifierParameters];
@@ -197,7 +197,7 @@ MakeRouteDataObjects[fileURL_String : fileURL] :=
         "GeoPoints" -> aGeoPoints2,
         "HWPoints" -> aHWPoints2,
         "GeoPointAssociations" -> lsGeoPointAssociations2,
-        "gnnObj" -> gnnObj2,
+        "gnnHWObj" -> gnnHWObj2,
         "gnnAllObj" -> gnnAllObj2
       |>
     ];
