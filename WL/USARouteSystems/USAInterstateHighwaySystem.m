@@ -169,8 +169,7 @@ MakeRouteDataObjects[fileURL_String : fileURL] :=
 
       aHWPoints2 =
           Association[
-            Flatten[KeyValueMap[{#1 <> ".Start" -> First[#2], #1 <> ".End" ->
-                Last[#2]} &, aGeoLines2]]];
+            Flatten[KeyValueMap[{#1 <> ".Start" -> First[#2], #1 <> ".End" -> Last[#2]} &, aGeoLines2]]];
       Print["Length[aHWPoints2] : ", Length[aHWPoints2]];
 
       Print[AbsoluteTiming[
@@ -219,8 +218,8 @@ MakeRoutesGraph[aDataObjects_Association, opts : OptionsPattern[] ] :=
       grIHighwaysReduced, grIHighways
     },
 
-      gnnObj2 = aDataObjects["gnnObj"];
-      gnnAllObj2 = aDataObjects["gnnObj"];
+      gnnObj2 = aDataObjects["gnnHWObj"];
+      gnnAllObj2 = aDataObjects["gnnAllObj"];
       aGeoPoints2 = aDataObjects["GeoPoints"];
       aGeoLines2 = aDataObjects["GeoLines"];
       lsGeoPointAssociations2 = aDataObjects["GeoPointAssociations"];
