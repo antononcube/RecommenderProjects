@@ -16,7 +16,7 @@ Import["https://raw.githubusercontent.com/antononcube/MathematicaForPrediction/m
 
 BeginPackage["USAInterstateHighwaySystem`"];
 
-MakeDataObjects::usage = "MakeDataObjects[fileURL, opts___]";
+MakeRouteDataObjects::usage = "MakeRouteDataObjects[fileURL, opts___]";
 
 MakeRoutesGraph::usage = "MakeRoutesGraph[aDataObjects_Association, opts___]";
 
@@ -67,17 +67,17 @@ kmlURL = "https://en.wikipedia.org/w/index.php?title=Template:Attached_KML/Inter
 
 
 (*******************************************************)
-(* MakeDataObjects                                     *)
+(* MakeRouteDataObjects                                     *)
 (*******************************************************)
 fileURL = "./Wikipedia_Interstate_Highway_System.kml";
 
-Clear[MakeDataObjects];
+Clear[MakeRouteDataObjects];
 
-Options[MakeDataObjects] = {
+Options[MakeRouteDataObjects] = {
   "MaxRoutePointSimilarityDistance" -> 0.002
 };
 
-MakeDataObjects[fileURL_String : fileURL] :=
+MakeRouteDataObjects[fileURL_String : fileURL] :=
     Block[{kmlObj,
       lsGeoLines, lsGeoLines2, lsGeoPointAssociations, lsGeoPointAssociations2, lsUniqueGeoLineIDs,
       aGeoLines, aGeoPoints, aSimilar, aGeoLines2, aGeoPoints2, aHWPoints2,
