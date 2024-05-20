@@ -4,7 +4,7 @@ author: Anton Antonov
 date: 2021-02-22
 output: html_notebook
 params:
-  dataDirName: "~/Datasets/data.world/PromptCloud/"
+  dataDirName: "~/Datasets/data.world/PromptCloud"
   dataFileNamePrefix: NULL
   modelID: NULL
   lsaNumberOfTopics: 100
@@ -20,8 +20,8 @@ params:
   exportTTRsQ: FALSE
   exportTTRsLSAObjectsQ: FALSE
   savedObjectsDirName: "../objects"
-  saveObjectsQ: TRUE
-  saveProcessedDataQ: TRUE
+  saveObjectsQ: FALSE
+  saveProcessedDataQ: FALSE
   reingestQ: FALSE
 ---
 
@@ -337,7 +337,7 @@ print(system.time({
     purrr::map(lsFocusTagTypes, function(tagType) {
       
       smrObj <- 
-        SMRToMetadataRecommender( 
+        SMRToMetadataRecommenderByReplacement( 
           smr = smrDiceJobs, 
           tagTypeTo = tagType, 
           nTopTags = 1, 
@@ -379,7 +379,7 @@ print(system.time({
         dplyr::group_by( Tag ) %>% 
         dplyr::sample_n( size = min( n(), 400 ) ) %>% 
         dplyr::inner_join( dfDiceJobs %>% dplyr::select( ID, Description), by = "ID" ) %>% 
-        dplyr::filter( 100 <= nchar(Description) && nchar(Description) <= 4000 ) %>% 
+        dplyr::filter( 100 <= nchar(Description) & nchar(Description) <= 4000 ) %>% 
         dplyr::summarise( TotalText = paste(Description, collapse = " "), .groups = "drop_last" ) %>% 
         dplyr::ungroup()
       
@@ -504,7 +504,7 @@ if( params$saveObjectsQ ) {
 ```{r}
 if( params$saveProcessedDataQ ) {
   
-  save( lsTaxonomyTagsLSANoTextObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "dfDiceJobsProcessed.RData") ) ) 
+  save( lsTaxonomyTagsLSANoTextObjects, file = file.path( params$savedObjectsDirName, paste0( modelID, "-", "dfDiceJobsProcessed.RData") ) )
 }
 ```
 
