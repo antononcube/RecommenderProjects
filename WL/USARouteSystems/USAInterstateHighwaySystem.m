@@ -12,8 +12,6 @@
 (* :Keywords: *)
 (* :Discussion: *)
 
-Import["https://raw.githubusercontent.com/antononcube/MathematicaForPrediction/master/MonadicProgramming/MonadicGeometricNearestNeighbors.m"];
-
 BeginPackage["USAInterstateHighwaySystem`"];
 
 MakeRouteDataObjects::usage = "MakeRouteDataObjects[fileURL, opts___]";
@@ -22,12 +20,17 @@ MakeRoutesGraph::usage = "MakeRoutesGraph[aDataObjects_Association, opts___]";
 
 ExportRoutesData::usage = "ExportRoutesData[irName_String, aDataObjects_Association, grIHighwaysReduced_Graph, grIHighways_Graph]";
 
+PacletInstall["AntonAntonov/MonadicGeometricNearestNeighbors", AllowVersionUpdate -> False];
+PacletInstall["AntonAntonov/DataReshapers", AllowVersionUpdate -> False];
+PacletInstall["AntonAntonov/OutlierIdentifiers", AllowVersionUpdate -> False];
+PacletInstall["AntonAntonov/SSparseMatrix", AllowVersionUpdate -> False];
+
 Begin["`Private`"];
 
-Needs["MathematicaForPredictionUtilities`"];
-Needs["MonadicGeometricNearestNeighbors`"];
-Needs["OutlierIdentifiers`"];
-Needs["SSparseMatrix`"];
+Needs["AntonAntonov`MonadicGeometricNearestNeighbors`"];
+Needs["AntonAntonov`DataReshapers`"];
+Needs["AntonAntonov`OutlierIdentifiers`"];
+Needs["AntonAntonov`SSparseMatrix`"];
 
 (*******************************************************)
 (* FindSimilarGeoLines                                 *)
