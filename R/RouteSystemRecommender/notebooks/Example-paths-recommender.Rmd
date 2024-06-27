@@ -1,0 +1,62 @@
+---
+title: "Example recommender"
+author: Anton Antonov
+date: 2024-06-27
+output: html_notebook
+---
+
+```{r setup}
+library(RouteSystemRecommender)
+library(SMRMon)
+library(dplyr)
+library(purrr)
+library(leaflet)
+```
+
+Read a data frame with coordinates of ZIP codes:
+
+```{r}
+dfZIPs <- read.csv("https://raw.githubusercontent.com/antononcube/SystemModeling/master/Data/dfUSZipCodesFrom2013GovernmentData.csv",  colClasses = c("character", "numeric", "numeric"))
+dim(dfZIPs)
+```
+
+```{r}
+dfZIPs %>% dplyr::sample_n(10)
+```
+
+Make a data frame of 300 hypothetical trips:
+
+```{r}
+set.seed(719)
+dfRoutes <- data.frame( id = 1:400, start = sample(dfZIPs$ZIP, 400), end = sample(dfZIPs$ZIP, 400))
+dfRoutes <- dfRoutes %>% dplyr::filter(start != end)
+dfRoutes <- dfRoutes[1:300, ]
+dim(dfRoutes)
+```
+
+Add the coordinates and make the data frame to have the expected column names:
+
+```{r}
+dfRoutes <- 
+  dfRoutes %>% 
+  dplyr::inner_join(dfZIPs, by = c("start" = "ZIP")) %>% 
+  dplyr::rename( lat1 = LAT, lon1 = LON) %>% 
+  dplyr::inner_join(dfZIPs, by = c("end" = "ZIP")) %>% 
+  dplyr::rename( lat2 = LAT, lon2 = LON) %>% 
+  dplyr::mutate( id = paste0(start, ":", end)) %>% 
+  dplyr::select(id, lat1, lon1, lat2, lon2) %>% 
+  dplyr::filter( -90 <= lat1 & lat1 <= 90 & -90 <= lat2 & lat2 <= 90 )
+  
+dfRoutes
+```
+
+Make recommender:
+
+```{r}
+smrPaths <- make_graph_paths_recommender(dfRoutes, graph = NULL)
+```
+
+```{r}
+dim(smrPaths$M)
+```
+

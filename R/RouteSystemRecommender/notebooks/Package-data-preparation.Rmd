@@ -1,0 +1,54 @@
+---
+title: "Package data preparation"
+author: "Anton Antonov"
+date: 2024-06-26
+output: html_notebook
+---
+
+
+```{r setup}
+library(igraph)
+
+dirName <- '../inst/extdata'
+url <- file.path(dirName, 'dfGeohashUSARoutesGraphEdges.csv')
+url
+```
+
+```{r}
+dfUSARouteSystemGraphEdges <- read.csv(url, header = FALSE)
+dfUSARouteSystemGraphEdges <- setNames(dfUSARouteSystemGraphEdges, c("from", "to", "weight"))
+dfUSARouteSystemGraphEdges
+```
+
+```{r}
+summary(nchar(dfUSARouteSystemGraphEdges$from))
+```
+
+
+```{r}
+Summary(unclass(dfUSARouteSystemGraphEdges))
+```
+
+```{r}
+routeGraph9 <- igraph::graph_from_data_frame(dfUSARouteSystemGraphEdges, directed = FALSE)
+routeGraph9
+```
+```{r}
+igraph::gorder(routeGraph9)
+igraph::gsize(routeGraph9)
+```
+
+
+## Make the data
+
+
+```{r, eval=F}
+usethis::use_data(dfUSARouteSystemGraphEdges)
+```
+
+## Export the data
+
+```{r, eval=FALSE}
+#write.csv( x = dfUSARouteSystemGraphEdges, file = "../inst/extdata/dfUSARouteSystemGraphEdges.csv", row.names = FALSE)
+```
+
