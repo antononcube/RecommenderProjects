@@ -1,9 +1,10 @@
 ---
-title: "Example recommender"
+title: "Geohash graph NNs study"
 author: Anton Antonov
-date: 2024-06-27
+date: 2024-07-01
 output: html_notebook
 ---
+
 
 ```{r setup}
 library(RouteSystemRecommender)
@@ -32,6 +33,7 @@ dfZIPs <-
 dfZIPs %>% dplyr::sample_n(10)
 ```
 
+
 Make a data frame of 300 hypothetical trips:
 
 ```{r}
@@ -58,73 +60,35 @@ dfRoutes <-
 dfRoutes
 ```
 
-Make recommender:
+---------
 
+# Finding NNs
+
+```{r}
+geohashTools::gh_decode("9vf1") 
+```
+
+```{r}
+grRoutes4 <- make_route_graph(precision = 4)
+
+igraph::gorder(grRoutes4)
+igraph::gsize(grRoutes4)
+```
+```{r}
+matCoords <- purrr::map_df(igraph::V(grRoutes4)$name, function(x) { geohashTools::gh_decode(x) })
+matCoords <- as.matrix(matCoords)
+rownames(matCoords) <- igraph::V(grRoutes4)$name
+matCoords[1:3,]
+```
 ```{r}
 system.time({
-  smrPaths <- make_graph_paths_recommender(dfRoutes, graph = NULL)
+  
+  lsMinPos <- purrr::map(1:100, function(i) {
+    focusPoint <- matCoords[i,]
+    matFocusPoint <- matrix(rep_len(x = focusPoint, length.out = 2*nrow(matCoords)), byrow = T, ncol = 2)
+    lsDists <- sqrt(rowSums((matFocusPoint - matCoords) * (matFocusPoint - matCoords)))
+    names(which.min(lsDists))
+  })
+  
 })
 ```
-
-```{r}
-dim(smrPaths$M)
-```
-
-------
-
-# ZIP-code geohashes in graphs
-
-## Precision 3
-
-
-```{r}
-grRoutes3 <- make_route_graph(precision = 3)
-
-igraph::gorder(grRoutes3)
-igraph::gsize(grRoutes3)
-```
-
-```{r}
-dfQuery <- 
-  dfZIPs %>% 
-  dplyr::mutate( InGraph = geohashTools::gh_encode(latitude = LAT, longitude = LON, precision = 3) %in% igraph::V(grRoutes3)$name)
-
-Summary(dfQuery)
-```
-
-## Precision 4 
-
-```{r}
-dfQuery <- 
-  dfZIPs %>% 
-  dplyr::mutate( Geohash = geohashTools::gh_encode(latitude = LAT, longitude = LON, precision = 4) )%>% 
-  dplyr::mutate( InGraph = Geohash %in% igraph::V(grRoutes4)$name) %>% 
-  dplyr::mutate( NNsInGraph = length(intersect(as.character(geohashTools::gh_neighbors(Geohash)), igraph::V(grRoutes4)$name)))
-
-Summary(dfQuery)
-```
-```{r}
-lsNNs <- as.character(geohashTools::gh_neighbors(dfQuery$Geohash[[782]]))
-lsNNs
-```
-
-
-```{r}
-intersect(lsNNs, igraph::V(grRoutes4)$name)
-```
-
-```{r}
-lsFound <- 
-  purrr::map_int(dfQuery$Geohash, function(x) {
-    lsNNs <- as.character(geohashTools::gh_neighbors(x))
-    length(intersect(lsNNs, igraph::V(grRoutes4)$name))
-  })
-
-summary(lsFound)
-```
-
-```{r}
-sum(lsFound == 0)
-sum(lsFound == 9)
-```
-
