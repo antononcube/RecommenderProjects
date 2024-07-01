@@ -26,6 +26,41 @@ make_route_graph <- function(precision = 5, directed = FALSE) {
 }
 
 #===========================================================
+#' Closest Geohash vertex from a graph
+#' @description Finds the nearest neighbor Geohash tile for a given Geo-point.
+#'
+closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
+
+  if ( gh %in% igraph::V(graph) ) {
+    return(gh)
+  }
+
+  res <- geohashTools::gh_decode(gh)
+
+  latitude <- res$latitude
+  longitude <- res$longitude
+
+  # Make the matrix of all vertex points
+  if ( is.matrix(matCoords) ) {
+    matCoords <- purrr::map_df(igraph::V(graph)$name, function(x) { geohashTools::gh_decode(x) })
+    matCoords <- as.matrix(matCoords)
+    rownames(matCoords) <- igraph::V(graph)$name
+  }
+
+  # Make the matrix for the focus point
+  focusPoint <- c(latitude, longitude)
+  matFocusPoint <- matrix(rep_len(x = focusPoint, length.out = 2*nrow(matCoords)), byrow = T, ncol = 2)
+
+  # Squared Euclidean distance
+  lsDists <- rowSums((matFocusPoint - matCoords) * (matFocusPoint - matCoords))
+
+  # Closest vertex
+  pos <- which.min(lsDists)
+
+  names(pos)
+}
+
+#===========================================================
 #' Make graph paths recommender
 #' @description Creates are a reommender for a given data frame with start and end locations
 #' over a given route graph.
@@ -50,7 +85,7 @@ make_graph_paths_recommender <- function(data, graph = NULL) {
     stop(paste0("The argument data is expected to be a data frame with the columns \"", paste0(expectedColnames,'", "'), "."))
   }
 
-  precision <- nchar(V(graph)$name[[1]])
+  precision <- nchar(igraph::V(graph)$name[[1]])
 
   dfDataGeohashes <-
     purrr::map_df(1:nrow(data), function (i) {
@@ -61,19 +96,23 @@ make_graph_paths_recommender <- function(data, graph = NULL) {
       )
     })
 
+  # Matrix of vertex coordinates
+  matCoords <- purrr::map_df(igraph::V(graph)$name, function(x) { geohashTools::gh_decode(x) })
+  matCoords <- as.matrix(matCoords)
+  rownames(matCoords) <- igraph::V(graph)$name
+
+  # Paths
   aPaths <-
     purrr::map(1:nrow(dfDataGeohashes), function (i) {
       dfX <- dfDataGeohashes[i,]
-      if ( (dfX$start %in% V(graph)$name) && dfX$end %in% V(graph)$name ) {
-        path <- igraph::shortest_paths(graph, from = dfX$start, to = dfX$end, output = "vpath")$vpath[[1]]
-        if ( length(path) > 0) {
-          path$name
-        } else {
-          NA
-        }
-      } else {
-        NA
-      }
+
+      path <- igraph::shortest_paths(graph = graph,
+                                     from = closest_geohash_vertex(graph = graph, gh = dfX$start, matCoords = matCoords),
+                                     to = closest_geohash_vertex(graph = graph, gh = dfX$end, matCoords = matCoords),
+                                     output = "vpath"
+                                     )
+
+      path <- path$vpath[[1]]
     })
 
   aPaths <- setNames(aPaths, dfDataGeohashes$id)
