@@ -41,7 +41,7 @@ closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
   longitude <- res$longitude
 
   # Make the matrix of all vertex points
-  if ( is.matrix(matCoords) ) {
+  if ( !is.matrix(matCoords) ) {
     matCoords <- purrr::map_df(igraph::V(graph)$name, function(x) { geohashTools::gh_decode(x) })
     matCoords <- as.matrix(matCoords)
     rownames(matCoords) <- igraph::V(graph)$name
@@ -61,8 +61,8 @@ closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
 }
 
 #===========================================================
-#' Make graph paths recommender
-#' @description Creates are a reommender for a given data frame with start and end locations
+#' Find route graph paths
+#' @description Find shortest paths for a given data frame with start and end locations
 #' over a given route graph.
 #' @param data Data frame with columns "id", "lat1", "lon1", "lat2", 'lon2".
 #' @param graph Route system graph.
@@ -70,7 +70,7 @@ closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
 #' @details Generally speaking any graph based on geohash can be used,
 #' but the main use case of this function is to use graphs based on a route system.
 #' @export
-make_graph_paths_recommender <- function(data, graph = NULL) {
+find_route_graph_paths <- function(data, graph = NULL) {
 
   if (is.null(graph)) {
     graph <- make_route_graph(precision = 4, directed = FALSE)
@@ -117,6 +117,23 @@ make_graph_paths_recommender <- function(data, graph = NULL) {
 
   aPaths <- setNames(aPaths, dfDataGeohashes$id)
 
+  # Result
+  aPaths
+}
+
+#===========================================================
+#' Make graph paths recommender
+#' @description Creates are a reommender for a given data frame with start and end locations
+#' over a given route graph.
+#' @param data Data frame with columns "id", "lat1", "lon1", "lat2", 'lon2".
+#' @param graph Route system graph.
+#' If NULL a geohashes route graph with precision 4 is used.
+#' @details Generally speaking any graph based on geohash can be used,
+#' but the main use case of this function is to use graphs based on a route system.
+#' @export
+make_graph_paths_recommender <- function(data, graph = NULL) {
+
+  aPaths <- find_route_graph_paths(data, graph);
 
   dfPathsLong <-
     purrr::map_df( 1:length(aPaths), function(i) {
