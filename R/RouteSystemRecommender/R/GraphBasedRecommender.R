@@ -28,7 +28,10 @@ make_route_graph <- function(precision = 5, directed = FALSE) {
 #===========================================================
 #' Closest Geohash vertex from a graph
 #' @description Finds the nearest neighbor Geohash tile for a given Geo-point.
-#'
+#' @param graph An iGraph object.
+#' @param gh Geohash string.
+#' @param matCoords Matrix with coordinates for the graph (Geohash) vertices.
+#' @export
 closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
 
   if ( gh %in% igraph::V(graph) ) {
