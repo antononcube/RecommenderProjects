@@ -30,9 +30,10 @@ make_route_graph <- function(precision = 5, directed = FALSE) {
 #' @description Finds the nearest neighbor Geohash tile for a given Geo-point.
 #' @param graph An iGraph object.
 #' @param gh Geohash string.
+#' @param n Number of nearest neighbors to return.
 #' @param matCoords Matrix with coordinates for the graph (Geohash) vertices.
 #' @export
-closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
+closest_geohash_vertex <- function(graph, gh, n = 1, matCoords = NULL) {
 
   if ( gh %in% igraph::V(graph) ) {
     return(gh)
@@ -57,8 +58,13 @@ closest_geohash_vertex <- function(graph, gh, matCoords = NULL) {
   # Squared Euclidean distance
   lsDists <- rowSums((matFocusPoint - matCoords) * (matFocusPoint - matCoords))
 
-  # Closest vertex
-  pos <- which.min(lsDists)
+  if ( n == 1 ) {
+    # Closest vertex
+    pos <- which.min(lsDists)
+  } else {
+    pos <- sort(lsDists)[1:n]
+    pos <- pos[!is.na(pos)]
+  }
 
   names(pos)
 }
@@ -115,7 +121,9 @@ find_route_graph_paths <- function(data, graph = NULL) {
                                      output = "vpath"
                                      )
 
-      path <- path$vpath[[1]]
+      path <- path$vpath[[1]]$name
+
+      path
     })
 
   aPaths <- setNames(aPaths, dfDataGeohashes$id)
